@@ -6,7 +6,7 @@ on:
       php-version:
         required: false
         type: string
-      composer-arguments:
+      composer:
         required: false
         type: string
       commit-file-pattern:
@@ -29,7 +29,7 @@ jobs:
           coverage: none
 
       - name: Install composer dependencies
-        run: composer install --no-interaction ${{ inputs.composer-arguments }}
+        run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
 
       - name: Run Laravel Pint
         run: composer format
