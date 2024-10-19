@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       mysql:
-        image: ${{ inputs.mysql-image || 'mysql:80' }}
+        image: ${{ inputs.mysql-image || 'mysql:8.0' }}
         env:
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: ${{ inputs.db-name || 'testbench' }}
