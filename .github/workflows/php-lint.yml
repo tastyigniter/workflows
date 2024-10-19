@@ -1,0 +1,41 @@
+name: PHP Linting (Pint)
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        required: false
+        type: string
+      composer-arguments:
+        required: false
+        type: string
+      commit-file-pattern:
+        required: false
+        type: string
+
+jobs:
+  php-lint:
+    name: PHP Linting (Pint)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version || '8.3' }}
+          tools: composer:v2
+          coverage: none
+
+      - name: Install composer dependencies
+        run: composer install --no-interaction ${{ inputs.composer-arguments }}
+
+      - name: Run Laravel Pint
+        run: composer format
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: PHP Linting (Pint) - Fix styling
+          file_pattern: ${{ inputs.commit-file-pattern || 'public' }}

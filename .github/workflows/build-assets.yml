@@ -1,0 +1,37 @@
+name: Build Assets
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      commit-file-pattern:
+        required: false
+        type: string
+    secrets:
+      ACCESS_TOKEN:
+        required: false
+
+jobs:
+  build-assets:
+    name: Build Assets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ACCESS_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+
+      - name: Install NPM dependencies
+        run: npm install -g bower && npm ci --ignore-scripts
+
+      - name: Build assets
+        run: npm run prod
+
+      - name: Commit compiled files
+        uses: stefanzweifel/git-auto-commit-action@v4
+        with:
+          commit_message: Compile Assets
+          file_pattern: ${{ inputs.commit-file-pattern }}

@@ -1,0 +1,60 @@
+name: PHP Tests
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        required: true
+        type: string
+      composer-arguments:
+        required: false
+        type: string
+      mysql-image:
+        required: false
+        type: string
+      db-name:
+        required: false
+        type: string
+      db-prefix:
+        required: false
+        type: string
+
+jobs:
+  php-tests:
+    name: 'PHP Tests ${{ inputs.php-version }}'
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: ${{ inputs.mysql-image || 'mysql:80' }}
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: ${{ inputs.db-name || 'testbench' }}
+        ports:
+          - 3306/tcp
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    env:
+      DB_PORT: 3306
+      DB_DATABASE: ${{ inputs.db-name || 'testbench' }}
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      DB_PREFIX: ${{ inputs.db-prefix }}
+    steps:
+      - name: Checkout changes
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version || '8.3' }}
+          extensions: dom, curl, xml, mbstring, zip, pdo, sqlite, bcmath, soap, intl, gd
+          tools: composer:v2
+          coverage: none
+
+      - name: Install composer dependencies
+        run: composer install --no-interaction ${{ inputs.composer-arguments }}
+
+      - name: Execute static analysis
+        run: composer static
+
+      - name: Run test suite
+        run: composer test
