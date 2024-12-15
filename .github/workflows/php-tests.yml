@@ -52,7 +52,7 @@ jobs:
           php-version: ${{ inputs.php-version || '8.3' }}
           extensions: dom, curl, xml, mbstring, zip, pdo, sqlite, bcmath, soap, intl, gd
           tools: composer:v2
-          coverage: none
+          coverage: xdebug
 
       - name: Install composer dependencies
         run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
