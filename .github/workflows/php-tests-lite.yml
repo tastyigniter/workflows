@@ -1,0 +1,47 @@
+name: PHP Tests SQLite
+
+on:
+  workflow_call:
+    inputs:
+      php-version:
+        required: true
+        type: string
+      composer:
+        required: false
+        type: string
+      db-name:
+        required: false
+        type: string
+      db-prefix:
+        required: false
+        type: string
+
+jobs:
+  php-tests-lite:
+    name: 'PHP Tests ${{ inputs.php-version }}'
+    runs-on: ubuntu-latest
+    env:
+      DB_DATABASE: ${{ inputs.db-file || 'database.sqlite' }}
+    steps:
+      - name: Checkout changes
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ inputs.php-version || '8.3' }}
+          extensions: dom, curl, xml, mbstring, zip, pdo, sqlite, bcmath, soap, intl, gd
+          tools: composer:v2
+          coverage: xdebug
+
+      - name: Install composer dependencies
+        run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
+
+      - name: Create SQLite Database
+        run: touch ${{ env.DB_DATABASE }}
+
+      - name: Execute static analysis
+        run: composer static
+
+      - name: Run test suite
+        run: composer test
