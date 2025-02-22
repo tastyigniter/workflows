@@ -38,4 +38,4 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: PHP Linting (Pint) - Fix styling
-          file_pattern: ${{ inputs.commit-file-pattern || 'public' }}
+          file_pattern: ${{ inputs.commit-file-pattern || './' }}
