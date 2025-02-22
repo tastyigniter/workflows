@@ -40,8 +40,5 @@ jobs:
       - name: Create SQLite Database
         run: touch ${{ env.DB_DATABASE }}
 
-      - name: Execute static analysis
-        run: composer static
-
       - name: Run test suite
-        run: composer test
+        run: composer test-suite

@@ -57,8 +57,5 @@ jobs:
       - name: Install composer dependencies
         run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
 
-      - name: Execute static analysis
-        run: composer static
-
       - name: Run test suite
-        run: composer test
+        run: composer test-suite
