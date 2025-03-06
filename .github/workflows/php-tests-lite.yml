@@ -41,4 +41,4 @@ jobs:
         run: touch ${{ env.DB_DATABASE }}
 
       - name: Run test suite
-        run: composer test-suite
+        run: composer test
