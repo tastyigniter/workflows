@@ -35,6 +35,10 @@ jobs:
       - name: Install composer dependencies
         run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
 
+      - name: Remove composer version after use
+        if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
+        run: composer config --unset version
+
       - name: Run Laravel Pint
         run: composer format
 
@@ -43,7 +47,3 @@ jobs:
         with:
           commit_message: PHP Linting (Pint) - Fix styling
           file_pattern: ${{ inputs.commit-file-pattern || './' }}
-
-      - name: Remove composer version after use
-        if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
-        run: composer config --unset version

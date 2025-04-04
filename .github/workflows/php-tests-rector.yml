@@ -61,9 +61,9 @@ jobs:
       - name: Install composer dependencies
         run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
 
-      - name: Run test suite
-        run: composer test
-
       - name: Remove composer version after use
         if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
         run: composer config --unset version
+
+      - name: Run test suite
+        run: composer test

@@ -41,12 +41,12 @@ jobs:
       - name: Install composer dependencies
         run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
 
+      - name: Remove composer version after use
+        if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
+        run: composer config --unset version
+
       - name: Create SQLite Database
         run: touch ${{ env.DB_DATABASE }}
 
       - name: Run test suite
         run: composer test
-
-      - name: Remove composer version after use
-        if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
-        run: composer config --unset version
