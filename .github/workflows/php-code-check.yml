@@ -31,7 +31,7 @@ jobs:
         run: composer config version 4.0.x-dev
 
       - name: Install composer dependencies
-        run: composer ${{ inputs.composer || 'install --no-interaction --no-progress --no-scripts' }}
+        run: composer ${{ inputs.composer || 'update --no-interaction --no-progress' }}
 
       - name: Remove composer version after use
         if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
