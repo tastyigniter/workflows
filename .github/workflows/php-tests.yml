@@ -9,7 +9,7 @@ on:
       composer:
         required: false
         type: string
-      composer_cmd:
+      command:
         required: false
         type: string
       mysql-image:
@@ -69,4 +69,4 @@ jobs:
         run: composer config --unset version
 
       - name: Run test coverage
-        run: composer ${{ inputs.composer_cmd || 'test:coverage' }}
+        run: ${{ inputs.command || 'composer test:coverage' }}
