@@ -41,7 +41,7 @@ jobs:
         run: composer test:lint
 
       - name: Run PHP Rector
-        run: composer test:rector
+        run: composer test:refactor
 
       - name: Run PHP Static Analysis
         run: composer test:static
