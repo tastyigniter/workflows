@@ -1,30 +1,28 @@
-name: PHP Linting (Pint)
+name: PHP Code Checks
 
 on:
   workflow_call:
     inputs:
       php-version:
-        required: false
+        required: true
         type: string
       composer:
         required: false
         type: string
-      commit-file-pattern:
-        required: false
-        type: string
 
 jobs:
-  php-lint:
-    name: PHP Linting (Pint)
+  php-code-check:
+    name: 'PHP Code Check ${{ inputs.php-version }}'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
+      - name: Checkout changes
         uses: actions/checkout@v4
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ inputs.php-version || '8.3' }}
+          extensions: dom, curl, xml, mbstring, zip, pdo, sqlite, bcmath, soap, intl, gd
           tools: composer:v2
           coverage: none
 
@@ -39,5 +37,11 @@ jobs:
         if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
         run: composer config --unset version
 
-      - name: Run Laravel Pint
+      - name: Run PHP Linting
         run: composer test:lint
+
+      - name: Run PHP Rector
+        run: composer test:rector
+
+      - name: Run PHP Static Analysis
+        run: composer test:static
