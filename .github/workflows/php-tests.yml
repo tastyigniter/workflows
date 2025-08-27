@@ -68,5 +68,5 @@ jobs:
         if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
         run: composer config --unset version
 
-      - name: Run test coverage
-        run: ${{ inputs.command || 'composer test:coverage' }}
+      - name: Run test suite
+        run: ${{ inputs.command || 'composer test' }}
