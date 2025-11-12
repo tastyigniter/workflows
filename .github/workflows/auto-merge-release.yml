@@ -10,20 +10,18 @@ on:
         type: string
 
 jobs:
-  auto-merge:
-    name: Auto Merge Release PR
+  precheck:
+    name: 🧩 Check for Matching Release PR
     runs-on: ubuntu-latest
-
-    permissions:
-      contents: write
-      pull-requests: write
-      checks: read
-      actions: read
-      statuses: read
-
+    outputs:
+      found: ${{ steps.find.outputs.found }}
+      number: ${{ steps.find.outputs.number }}
+      title: ${{ steps.find.outputs.title }}
+      body: ${{ steps.find.outputs.body }}
+      version: ${{ steps.find.outputs.version }}
     steps:
       - name: Find matching Release PR and extract version
-        id: find_release_pr
+        id: find
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -45,30 +43,43 @@ jobs:
               const version = `v${match[1]}`;
               console.log(`✅ Found release PR #${releasePr.number}: ${releasePr.title}`);
               console.log(`✅ Extracted version: ${version}`);
-              
+
+              core.setOutput('found', 'true');
               core.setOutput('number', releasePr.number);
               core.setOutput('title', releasePr.title);
               core.setOutput('body', releasePr.body || '');
               core.setOutput('version', version);
-              core.setOutput('base', releasePr.base.ref);
             } else {
               console.log('ℹ️ No open PR found matching "Release vX.Y.Z"');
-              core.setOutput('number', '');
+              core.setOutput('found', 'false');
             }
 
-      - name: Stop if no matching release PR found
-        if: >
-          steps.find_release_pr.outputs.number == '' ||
-          !startsWith(steps.find_release_pr.outputs.title, 'Release v')
+  auto-merge:
+    name: Auto Merge & Create Release
+    runs-on: ubuntu-latest
+    needs: precheck
+    if: needs.precheck.outputs.found == 'true'
+
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      actions: read
+      statuses: read
+
+    steps:
+      - name: Debug PR info
         run: |
-          echo "⚠️ Skipping auto-merge and release — no valid 'Release vX.Y.Z' PR found."
-          exit 0
+          echo "✅ Found release PR #${{ needs.precheck.outputs.number }}"
+          echo "PR title: ${{ needs.precheck.outputs.title }}"
+          echo "Version: ${{ needs.precheck.outputs.version }}"
 
       - name: Auto-merge the PR
+        id: auto_merge
         uses: pascalgn/automerge-action@v0.16.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PULL_REQUEST: ${{ steps.find_release_pr.outputs.number }}
+          PULL_REQUEST_NUMBER: ${{ needs.precheck.outputs.number }}
           MERGE_METHOD: merge
           MERGE_COMMIT_MESSAGE: "Auto-merged Release PR"
           MERGE_DELETE_BRANCH: false
@@ -77,12 +88,13 @@ jobs:
           MERGE_ERROR_FAIL: true
 
       - name: Create GitHub Release
+        if: steps.auto_merge.outputs.mergeResult == 'merged'
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.find_release_pr.outputs.version }}
-          release_name: Release ${{ steps.find_release_pr.outputs.version }}
-          body: ${{ steps.find_release_pr.outputs.body }}
+          tag_name: ${{ needs.precheck.outputs.version }}
+          release_name: Release ${{ needs.precheck.outputs.version }}
+          body: ${{ needs.precheck.outputs.body }}
           draft: false
           prerelease: false
