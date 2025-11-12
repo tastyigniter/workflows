@@ -111,8 +111,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ steps.extract_version.outputs.version }}
-          release_name: Release ${{ steps.extract_version.outputs.version }}
+          tag_name: ${{ steps.find_release_pr.outputs.version }}
+          release_name: Release ${{ steps.find_release_pr.outputs.version }}
           body: ${{ steps.find_release_pr.outputs.body }}
           draft: false
           prerelease: false
