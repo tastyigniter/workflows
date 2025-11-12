@@ -56,14 +56,6 @@ jobs:
               core.setOutput('number', '');
             }
 
-      - name: Debug PR info
-        run: |
-          echo "PR number: ${{ steps.find_release_pr.outputs.number }}"
-          echo "PR title: ${{ steps.find_release_pr.outputs.title }}"
-          echo "PR base: ${{ steps.find_release_pr.outputs.base }}"
-          echo "Version: ${{ steps.find_release_pr.outputs.version }}"
-          echo "Triggered by ref: ${{ github.ref }}"
-
       - name: Stop if no matching release PR found
         if: >
           steps.find_release_pr.outputs.number == '' ||
