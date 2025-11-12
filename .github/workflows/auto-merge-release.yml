@@ -11,7 +11,7 @@ on:
 
 jobs:
   precheck:
-    name: 🧩 Check for Matching Release PR
+    name: Check for Matching Release PR
     runs-on: ubuntu-latest
     outputs:
       found: ${{ steps.find.outputs.found }}
@@ -68,12 +68,6 @@ jobs:
       statuses: read
 
     steps:
-      - name: Debug PR info
-        run: |
-          echo "✅ Found release PR #${{ needs.precheck.outputs.number }}"
-          echo "PR title: ${{ needs.precheck.outputs.title }}"
-          echo "Version: ${{ needs.precheck.outputs.version }}"
-
       - name: Auto-merge the PR
         id: auto_merge
         uses: pascalgn/automerge-action@v0.16.3
