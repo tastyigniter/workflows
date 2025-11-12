@@ -10,6 +10,31 @@ on:
         type: string
 
 jobs:
+  debug-context:
+    name: 🐛 Debug Context
+    runs-on: ubuntu-latest
+    # Always run, no conditions
+    steps:
+      - name: Dump event data
+        continue-on-error: true
+        run: |
+          echo "🔎 Event name: ${{ github.event_name }}"
+          echo "🔎 Ref: ${{ github.ref }}"
+          echo "🔎 Head ref: ${{ github.head_ref }}"
+          echo "🔎 Base ref: ${{ github.base_ref }}"
+          echo "🔎 PR title: ${{ github.event.pull_request.title }}"
+          echo "🔎 PR base ref: ${{ github.event.pull_request.base.ref }}"
+          echo "🔎 Draft status: ${{ github.event.pull_request.draft }}"
+          echo "🔎 Release branch input: ${{ inputs.release-branch }}"
+          echo "🔎 Conditions to match:"
+          echo "    - event_name == 'pull_request'"
+          echo "    - base.ref == inputs.release-branch"
+          echo "    - draft == false"
+          echo "    - title starts with 'Release v'"
+          echo "---------------------------------------"
+          echo "If this job runs but 'auto-merge' is skipped,"
+          echo "it means one or more of these values don't match."
+
   auto-merge:
     name: Auto Merge Release PR
     runs-on: ubuntu-latest
