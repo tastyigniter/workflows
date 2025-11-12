@@ -101,13 +101,6 @@ jobs:
             exit 1
           fi
 
-      - name: Wait for all required checks to pass
-        uses: lewagon/wait-on-check-action@v1.3.1
-        with:
-          ref: ${{ github.sha }}
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 15
-          running-workflow-name: Auto Merge & Create Release
 
       - name: Auto-merge the PR
         uses: pascalgn/automerge-action@v0.16.3
