@@ -47,69 +47,64 @@ jobs:
       statuses: read
 
     steps:
-      - name: Find associated pull request
-        id: find_pr
+      - name: Find matching Release PR and extract version
+        id: find_release_pr
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const branch = context.ref.replace('refs/heads/', '');
-            const prs = await github.rest.pulls.list({
+            console.log(`🔍 Looking for open PRs from branch: ${branch}`);
+            const { data: prs } = await github.rest.pulls.list({
               owner: context.repo.owner,
               repo: context.repo.repo,
               head: `${context.repo.owner}:${branch}`,
-              state: 'open'
+              state: 'open',
             });
 
-            if (prs.data.length > 0) {
-              const pr = prs.data[0];
-              console.log(`✅ Found PR #${pr.number}: ${pr.title}`);
-              core.setOutput('number', pr.number);
-              core.setOutput('title', pr.title);
-              core.setOutput('body', pr.body || '');
-              core.setOutput('base', pr.base.ref);
+            const releasePattern = /^Release v(\d+\.\d+\.\d+)$/;
+            const releasePr = prs.find(pr => releasePattern.test(pr.title));
+
+            if (releasePr) {
+              const match = releasePr.title.match(releasePattern);
+              const version = `v${match[1]}`;
+              console.log(`✅ Found release PR #${releasePr.number}: ${releasePr.title}`);
+              console.log(`✅ Extracted version: ${version}`);
+              
+              core.setOutput('number', releasePr.number);
+              core.setOutput('title', releasePr.title);
+              core.setOutput('body', releasePr.body || '');
+              core.setOutput('version', version);
+              core.setOutput('base', releasePr.base.ref);
             } else {
-              console.log('ℹ️ No open PR found for this branch.');
+              console.log('ℹ️ No open PR found matching "Release vX.Y.Z"');
               core.setOutput('number', '');
             }
 
       - name: Debug PR info
         run: |
-          echo "PR number: ${{ steps.find_pr.outputs.number }}"
-          echo "PR title: ${{ steps.find_pr.outputs.title }}"
-          echo "PR base: ${{ steps.find_pr.outputs.base }}"
+          echo "PR number: ${{ steps.find_release_pr.outputs.number }}"
+          echo "PR title: ${{ steps.find_release_pr.outputs.title }}"
+          echo "PR base: ${{ steps.find_release_pr.outputs.base }}"
           echo "Triggered by ref: ${{ github.ref }}"
 
       - name: Stop if no matching release PR found
         if: >
-          steps.find_pr.outputs.number == '' ||
-          !startsWith(steps.find_pr.outputs.title, 'Release v')
+          steps.find_release_pr.outputs.number == '' ||
+          !startsWith(steps.find_release_pr.outputs.title, 'Release v')
         run: |
           echo "⚠️ Skipping auto-merge and release — no valid 'Release vX.Y.Z' PR found."
           exit 0
-
-      - name: Extract version from PR title
-        id: extract_version
-        run: |
-          title="${{ steps.find_pr.outputs.title }}"
-          if [[ "$title" =~ ^Release[[:space:]]v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            version="v${BASH_REMATCH[1]}"
-            echo "✅ Version extracted: $version"
-            echo "version=$version" >> $GITHUB_OUTPUT
-          else
-            echo "❌ PR title does not match 'Release vX.Y.Z'"
-            exit 1
-          fi
-
 
       - name: Auto-merge the PR
         uses: pascalgn/automerge-action@v0.16.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PULL_REQUEST_NUMBER: ${{ steps.find_pr.outputs.number }}
+          PULL_REQUEST: ${{ steps.find_release_pr.outputs.number }}
           MERGE_METHOD: merge
           MERGE_COMMIT_MESSAGE: "Auto-merged Release PR"
           MERGE_DELETE_BRANCH: false
+          MERGE_FORKS: false
 
       - name: Create GitHub Release
         uses: actions/create-release@v1
@@ -118,6 +113,6 @@ jobs:
         with:
           tag_name: ${{ steps.extract_version.outputs.version }}
           release_name: Release ${{ steps.extract_version.outputs.version }}
-          body: ${{ steps.find_pr.outputs.body }}
+          body: ${{ steps.find_release_pr.outputs.body }}
           draft: false
           prerelease: false
