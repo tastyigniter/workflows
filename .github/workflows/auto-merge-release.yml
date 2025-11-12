@@ -14,7 +14,7 @@ jobs:
     name: Auto Merge Release PR
     runs-on: ubuntu-latest
 
-    # Only run on PRs into the target branch with proper title
+    # Run only for "Release vX.Y.Z" PRs into the correct branch
     if: >
       github.event_name == 'pull_request' &&
       github.event.pull_request.base.ref == inputs.release-branch &&
@@ -24,6 +24,9 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      checks: read
+      actions: read
+      statuses: read
 
     outputs:
       version: ${{ steps.extract_version.outputs.version }}
@@ -42,8 +45,17 @@ jobs:
             exit 1
           fi
 
+      - name: Wait for all required checks to pass
+        uses: lewagon/wait-on-check-action@v1.3.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 15
+          running-workflow-name: Auto Merge & Create Release
+
       - name: Auto-merge the PR
         id: automerge
+        if: ${{ success() }}
         uses: pascalgn/automerge-action@v0.16.3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
