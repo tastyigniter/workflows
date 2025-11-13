@@ -60,6 +60,10 @@ jobs:
     needs: precheck
     if: needs.precheck.outputs.found == 'true'
 
+    permissions:
+      contents: write
+      pull-requests: write
+
     steps:
       - name: Auto-merge the PR
         id: auto_merge
