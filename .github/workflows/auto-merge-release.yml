@@ -19,6 +19,7 @@ jobs:
       title: ${{ steps.find.outputs.title }}
       body: ${{ steps.find.outputs.body }}
       version: ${{ steps.find.outputs.version }}
+
     steps:
       - name: Find matching Release PR and extract version
         id: find
@@ -35,24 +36,35 @@ jobs:
               state: 'open',
             });
 
-            const releasePattern = /^Release v(\d+\.\d+\.\d+)$/;
-            const releasePr = prs.find(pr => releasePattern.test(pr.title));
+            const pattern = /^Release v(\d+\.\d+\.\d+)$/;
+            const match = prs.find(pr => pattern.test(pr.title));
 
-            if (releasePr) {
-              const match = releasePr.title.match(releasePattern);
-              const version = `v${match[1]}`;
-              console.log(`✅ Found release PR #${releasePr.number}: ${releasePr.title}`);
-              console.log(`✅ Extracted version: ${version}`);
-
-              core.setOutput('found', 'true');
-              core.setOutput('number', releasePr.number);
-              core.setOutput('title', releasePr.title);
-              core.setOutput('body', releasePr.body || '');
-              core.setOutput('version', version);
-            } else {
-              console.log('ℹ️ No open PR found matching "Release vX.Y.Z"');
-              core.setOutput('found', 'false');
+            if (!match) {
+              return {
+                found: 'false'
+              };
             }
+
+            const version = `v${match.title.match(pattern)[1]}`;
+
+            return {
+              found: 'true',
+              number: match.number.toString(),
+              title: match.title,
+              body: match.body || '',
+              version: version
+            };
+
+      - name: Set outputs
+        id: set
+        run: |
+          echo "found=${{ steps.find.outputs.found }}" >> $GITHUB_OUTPUT
+          echo "number=${{ steps.find.outputs.number }}" >> $GITHUB_OUTPUT
+          echo "title=${{ steps.find.outputs.title }}" >> $GITHUB_OUTPUT
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "${{ steps.find.outputs.body }}" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "version=${{ steps.find.outputs.version }}" >> $GITHUB_OUTPUT
 
   auto-merge:
     name: Auto Merge & Create Release
