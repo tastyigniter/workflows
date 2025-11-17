@@ -8,6 +8,9 @@ on:
         required: false
         default: "main"
         type: string
+    secrets:
+      ACCESS_TOKEN:
+        required: true
 
 jobs:
   precheck:
