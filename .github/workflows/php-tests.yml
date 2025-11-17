@@ -40,6 +40,7 @@ jobs:
       DB_USERNAME: root
       DB_PASSWORD: root
       DB_PREFIX: ${{ inputs.db-prefix }}
+      LARAVEL_PARALLEL_TESTING: 1
     steps:
       - name: Checkout changes
         uses: actions/checkout@v4
