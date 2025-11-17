@@ -84,12 +84,34 @@ jobs:
 
       - name: Create GitHub Release
         if: steps.auto_merge.outputs.mergeResult == 'merged'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+        uses: actions/github-script@v8
         with:
-          tag_name: ${{ needs.precheck.outputs.version }}
-          release_name: Release ${{ needs.precheck.outputs.version }}
-          body: ${{ needs.precheck.outputs.body }}
-          draft: false
-          prerelease: false
+          github-token: ${{ secrets.ACCESS_TOKEN }}
+          script: |
+            const targetBranch = '${{ inputs.release-branch }}' || 'main';
+            const version = '${{ needs.precheck.outputs.version }}';
+            const releaseName = `Release ${version}`;
+            const body = `${{ needs.precheck.outputs.body }}`;
+            
+            // Get the latest commit on the target branch
+            const { data: branch } = await github.rest.repos.getBranch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              branch: targetBranch,
+            });
+            
+            const targetCommitish = branch.commit.sha;
+            console.log(`🔖 Creating release ${releaseName} on branch ${targetBranch} at commit ${targetCommitish}`);
+            
+            const { data: release } = await github.rest.repos.createRelease({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: version,
+              name: releaseName,
+              body: body,
+              target_commitish: targetCommitish,
+              draft: false,
+              prerelease: false,
+            });
+            
+            console.log(`✅ Created release: ${release.html_url}`);
