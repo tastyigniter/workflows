@@ -65,6 +65,43 @@ jobs:
       pull-requests: write
 
     steps:
+      - name: Wait for PR to be mergeable
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ needs.precheck.outputs.number }}');
+            const maxAttempts = 6;
+            const delayMs = 10000; // 10 seconds
+            
+            console.log(`⏳ Waiting for PR #${prNumber} to be ready to merge...`);
+            
+            for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              
+              console.log(`Attempt ${attempt}/${maxAttempts}: mergeable_state = ${pr.mergeable_state}, mergeable = ${pr.mergeable}`);
+              
+              if (pr.mergeable_state === 'clean' && pr.mergeable === true) {
+                console.log(`✅ PR #${prNumber} is ready to merge!`);
+                return;
+              }
+              
+              if (pr.mergeable_state === 'dirty' || pr.mergeable === false) {
+                throw new Error(`PR #${prNumber} cannot be merged: mergeable_state=${pr.mergeable_state}, mergeable=${pr.mergeable}`);
+              }
+              
+              if (attempt < maxAttempts) {
+                console.log(`⏳ PR still blocked, waiting ${delayMs/1000}s before retry...`);
+                await new Promise(resolve => setTimeout(resolve, delayMs));
+              }
+            }
+            
+            throw new Error(`PR #${prNumber} did not become mergeable after ${maxAttempts} attempts`);
+
       - name: Auto-merge the PR
         id: auto_merge
         uses: pascalgn/automerge-action@v0.16.3
