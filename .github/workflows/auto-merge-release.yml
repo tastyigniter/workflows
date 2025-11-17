@@ -23,7 +23,7 @@ jobs:
     steps:
       - name: Find matching Release PR and extract version
         id: find
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -40,6 +40,7 @@ jobs:
             const match = prs.find(pr => pattern.test(pr.title));
 
             if (!match) {
+              console.log('❌ No matching Release PR found.');
               return {
                 found: 'false'
               };
@@ -54,17 +55,6 @@ jobs:
               body: match.body || '',
               version: version
             };
-
-      - name: Set outputs
-        id: set
-        run: |
-          echo "found=${{ steps.find.outputs.found }}" >> $GITHUB_OUTPUT
-          echo "number=${{ steps.find.outputs.number }}" >> $GITHUB_OUTPUT
-          echo "title=${{ steps.find.outputs.title }}" >> $GITHUB_OUTPUT
-          echo "body<<EOF" >> $GITHUB_OUTPUT
-          echo "${{ steps.find.outputs.body }}" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "version=${{ steps.find.outputs.version }}" >> $GITHUB_OUTPUT
 
   auto-merge:
     name: Auto Merge & Create Release
