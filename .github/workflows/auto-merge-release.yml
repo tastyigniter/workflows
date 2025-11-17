@@ -85,13 +85,15 @@ jobs:
       - name: Create GitHub Release
         if: steps.auto_merge.outputs.mergeResult == 'merged'
         uses: actions/github-script@v8
+        env:
+          RELEASE_BODY: ${{ needs.precheck.outputs.body }}
         with:
           github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const targetBranch = '${{ inputs.release-branch }}' || 'main';
             const version = '${{ needs.precheck.outputs.version }}';
             const releaseName = `Release ${version}`;
-            const body = `${{ needs.precheck.outputs.body }}`;
+            const body = process.env.RELEASE_BODY || '';
             
             // Get the latest commit on the target branch
             const { data: branch } = await github.rest.repos.getBranch({
