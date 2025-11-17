@@ -27,6 +27,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
             const branch = context.ref.replace('refs/heads/', '');
             console.log(`🔍 Looking for open PRs from branch: ${branch}`);
             const { data: prs } = await github.rest.pulls.list({
@@ -41,20 +42,17 @@ jobs:
 
             if (!match) {
               console.log('❌ No matching Release PR found.');
-              return {
-                found: 'false'
-              };
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'found=false\n');
+            } else {
+              const version = `v${match.title.match(pattern)[1]}`;
+              const body = match.body || '';
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, `found=true\n`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, `number=${match.number}\n`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, `title=${match.title.replace(/\n/g, ' ')}\n`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${body}\nEOF\n`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+              console.log(`✅ Found matching Release PR: #${match.number} - ${match.title}`);
             }
-
-            const version = `v${match.title.match(pattern)[1]}`;
-
-            return {
-              found: 'true',
-              number: match.number.toString(),
-              title: match.title,
-              body: match.body || '',
-              version: version
-            };
 
   auto-merge:
     name: Auto Merge & Create Release
