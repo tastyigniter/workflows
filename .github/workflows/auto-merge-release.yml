@@ -72,10 +72,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PULL_REQUEST: ${{ needs.precheck.outputs.number }}
           MERGE_METHOD: merge
-          MERGE_COMMIT_MESSAGE: "Auto-merged Release PR"
+          MERGE_COMMIT_MESSAGE: pull-request-description
           MERGE_DELETE_BRANCH: false
           MERGE_FORKS: false
-          MERGE_LABELS: ''
+          MERGE_LABELS: ""
           MERGE_ERROR_FAIL: true
 
       - name: Create GitHub Release
