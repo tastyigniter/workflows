@@ -8,9 +8,6 @@ on:
         required: false
         default: "main"
         type: string
-    secrets:
-      GITHUB_TOKEN:
-        required: false
 
 jobs:
   precheck:
@@ -28,7 +25,7 @@ jobs:
         id: find
         uses: actions/github-script@v8
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const fs = require('fs');
             const branch = context.ref.replace('refs/heads/', '');
@@ -66,14 +63,13 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      id-token: write
 
     steps:
       - name: Auto-merge the PR
         id: auto_merge
         uses: pascalgn/automerge-action@v0.16.3
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
           PULL_REQUEST: ${{ needs.precheck.outputs.number }}
           MERGE_METHOD: merge
           MERGE_COMMIT_MESSAGE: pull-request-description
@@ -87,7 +83,7 @@ jobs:
         if: steps.auto_merge.outputs.mergeResult == 'merged'
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN || github.token }}
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
         with:
           tag_name: ${{ needs.precheck.outputs.version }}
           release_name: Release ${{ needs.precheck.outputs.version }}
