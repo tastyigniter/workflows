@@ -11,8 +11,6 @@ on:
     secrets:
       ACCESS_TOKEN:
         required: true
-  pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   auto-merge-release:
