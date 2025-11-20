@@ -165,7 +165,7 @@ jobs:
           MERGE_READY_STATE: "clean,has_hooks,unknown,unstable,blocked"
 
       - name: Create GitHub Release
-        if: steps.auto_merge.outputs.mergeResult == 'merged'
+        if: steps.merge_pr.outputs.mergeResult == 'merged'
         uses: actions/github-script@v8
         env:
           RELEASE_BODY: ${{ steps.pr_info.outputs.pr_body }}
