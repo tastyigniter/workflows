@@ -78,11 +78,25 @@ jobs:
             
             const version = `v4.${match[1]}.${match[2]}`;
             console.log(`✅ PR #${prNumber} matches pattern. Version: ${version}`);
-
+            
+            // Get PR details to extract head SHA
+            let prHeadSha;
+            if (context.eventName === 'pull_request') {
+              prHeadSha = context.payload.pull_request.head.sha;
+            } else {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              prHeadSha = pr.head.sha;
+            }
+            
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `matches_pattern=true\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_number=${prNumber}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_title=${prTitle.replace(/\n/g, ' ')}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_head_sha=${prHeadSha}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_body<<EOF\n${prBody}\nEOF\n`);
 
       - name: Check if all checks have passed
