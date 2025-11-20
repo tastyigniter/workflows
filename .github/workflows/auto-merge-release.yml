@@ -105,11 +105,10 @@ jobs:
         uses: lewagon/wait-on-check-action@v1.3.4
         with:
           ref: ${{ steps.pr_info.outputs.pr_head_sha }}
-          check-name: '.*'
+          check-regexp: '^php-tests'
           repo-token: ${{ secrets.ACCESS_TOKEN }}
           wait-interval: 10
           allowed-conclusions: success
-          ignore-checks: 'Auto Merge Release PR & Create Release'
 
       - name: Verify PR mergeability
         id: verify_pr
