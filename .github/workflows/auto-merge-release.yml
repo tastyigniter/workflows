@@ -78,25 +78,11 @@ jobs:
             
             const version = `v4.${match[1]}.${match[2]}`;
             console.log(`✅ PR #${prNumber} matches pattern. Version: ${version}`);
-            
-            // Get PR details to extract head SHA
-            let prHeadSha;
-            if (context.eventName === 'pull_request') {
-              prHeadSha = context.payload.pull_request.head.sha;
-            } else {
-              const { data: pr } = await github.rest.pulls.get({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-              });
-              prHeadSha = pr.head.sha;
-            }
-            
+
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `matches_pattern=true\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_number=${prNumber}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_title=${prTitle.replace(/\n/g, ' ')}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_head_sha=${prHeadSha}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_body<<EOF\n${prBody}\nEOF\n`);
 
       - name: Check if all checks have passed
@@ -152,51 +138,20 @@ jobs:
       - name: Merge PR
         id: merge_pr
         if: steps.pr_info.outputs.matches_pattern == 'true' && steps.check_status.outcome == 'success' && steps.verify_pr.outputs.all_checks_passed == 'true'
-        uses: actions/github-script@v8
+        uses: pascalgn/automerge-action@v0.16.3
         env:
-          PR_TITLE: ${{ steps.pr_info.outputs.pr_title }}
-          PR_BODY: ${{ steps.pr_info.outputs.pr_body }}
-        with:
-          github-token: ${{ secrets.ACCESS_TOKEN }}
-          script: |
-            const prNumber = parseInt('${{ steps.pr_info.outputs.pr_number }}');
-            const prTitle = process.env.PR_TITLE || '';
-            const prBody = process.env.PR_BODY || '';
-            
-            console.log(`🔄 Attempting to merge PR #${prNumber}...`);
-            
-            try {
-              // Merge the PR
-              const { data: mergeResult } = await github.rest.pulls.merge({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                pull_number: prNumber,
-                commit_title: prTitle,
-                commit_message: prBody,
-                merge_method: 'merge',
-              });
-              
-              if (mergeResult.merged) {
-                console.log(`✅ Successfully merged PR #${prNumber}`);
-                const fs = require('fs');
-                fs.appendFileSync(process.env.GITHUB_OUTPUT, 'merged=true\n');
-                fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge_sha=${mergeResult.sha}\n`);
-              } else {
-                console.log(`❌ Failed to merge PR #${prNumber}`);
-                const fs = require('fs');
-                fs.appendFileSync(process.env.GITHUB_OUTPUT, 'merged=false\n');
-                throw new Error(`Merge failed: ${mergeResult.message || 'Unknown error'}`);
-              }
-            } catch (error) {
-              console.error(`❌ Error merging PR: ${error.message}`);
-              if (error.status === 405) {
-                throw new Error('PR cannot be merged. It may require reviews, have conflicts, or be blocked by branch protection rules.');
-              }
-              throw error;
-            }
+          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
+          PULL_REQUEST: ${{ needs.pr_info.outputs.pr_number }}
+          MERGE_METHOD: merge
+          MERGE_COMMIT_MESSAGE: pull-request-title-and-description
+          MERGE_DELETE_BRANCH: false
+          MERGE_FORKS: false
+          MERGE_LABELS: ""
+          MERGE_ERROR_FAIL: true
+          MERGE_READY_STATE: "clean,has_hooks,unknown,unstable,blocked"
 
       - name: Create GitHub Release
-        if: steps.pr_info.outputs.matches_pattern == 'true' && steps.merge_pr.outputs.merged == 'true'
+        if: steps.auto_merge.outputs.mergeResult == 'merged'
         uses: actions/github-script@v8
         env:
           RELEASE_BODY: ${{ steps.pr_info.outputs.pr_body }}
