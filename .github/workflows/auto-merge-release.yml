@@ -11,89 +11,204 @@ on:
     secrets:
       ACCESS_TOKEN:
         required: true
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
-  precheck:
-    name: Check for Matching Release PR
+  auto-merge-release:
+    name: Auto Merge Release PR & Create Release
     runs-on: ubuntu-latest
-    outputs:
-      found: ${{ steps.find.outputs.found }}
-      number: ${{ steps.find.outputs.number }}
-      title: ${{ steps.find.outputs.title }}
-      body: ${{ steps.find.outputs.body }}
-      version: ${{ steps.find.outputs.version }}
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_call'
+
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      statuses: read
 
     steps:
-      - name: Find matching Release PR and extract version
-        id: find
+      - name: Get PR information
+        id: pr_info
         uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const fs = require('fs');
-            const branch = context.ref.replace('refs/heads/', '');
-            console.log(`🔍 Looking for open PRs from branch: ${branch}`);
-            const { data: prs } = await github.rest.pulls.list({
+            let prNumber;
+            let prTitle;
+            let prBody;
+            
+            // Get PR number from context
+            if (context.eventName === 'pull_request') {
+              prNumber = context.payload.pull_request.number;
+              prTitle = context.payload.pull_request.title;
+              prBody = context.payload.pull_request.body || '';
+            } else {
+              // For workflow_call, find the PR from the branch
+              const branch = context.ref.replace('refs/heads/', '');
+              console.log(`🔍 Looking for open PRs from branch: ${branch}`);
+              const { data: prs } = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head: `${context.repo.owner}:${branch}`,
+                state: 'open',
+              });
+              
+              const pattern = /^Release v4\.(\d+)\.(\d+)$/;
+              const match = prs.find(pr => pattern.test(pr.title));
+              
+              if (!match) {
+                console.log('❌ No matching Release PR found.');
+                fs.appendFileSync(process.env.GITHUB_OUTPUT, 'matches_pattern=false\n');
+                return;
+              }
+              
+              prNumber = match.number;
+              prTitle = match.title;
+              prBody = match.body || '';
+            }
+            
+            // Check if PR title matches pattern Release v4.x.x
+            const pattern = /^Release v4\.(\d+)\.(\d+)$/;
+            const match = prTitle.match(pattern);
+            
+            if (!match) {
+              console.log(`❌ PR title "${prTitle}" does not match pattern "Release v4.x.x"`);
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'matches_pattern=false\n');
+              return;
+            }
+            
+            const version = `v4.${match[1]}.${match[2]}`;
+            console.log(`✅ PR #${prNumber} matches pattern. Version: ${version}`);
+            
+            // Get PR details to extract head SHA
+            let prHeadSha;
+            if (context.eventName === 'pull_request') {
+              prHeadSha = context.payload.pull_request.head.sha;
+            } else {
+              const { data: pr } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+              });
+              prHeadSha = pr.head.sha;
+            }
+            
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `matches_pattern=true\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_number=${prNumber}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_title=${prTitle.replace(/\n/g, ' ')}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_head_sha=${prHeadSha}\n`);
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_body<<EOF\n${prBody}\nEOF\n`);
+
+      - name: Check if all checks have passed
+        id: check_status
+        if: steps.pr_info.outputs.matches_pattern == 'true'
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ steps.pr_info.outputs.pr_head_sha }}
+          check-name: '.*'
+          repo-token: ${{ secrets.ACCESS_TOKEN }}
+          wait-interval: 10
+          allowed-conclusions: success
+
+      - name: Verify PR mergeability
+        id: verify_pr
+        if: steps.pr_info.outputs.matches_pattern == 'true' && steps.check_status.outcome == 'success'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.ACCESS_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const core = require('@actions/core');
+            const prNumber = parseInt('${{ steps.pr_info.outputs.pr_number }}');
+            
+            console.log(`🔍 Verifying PR #${prNumber} mergeability...`);
+            
+            // Get PR details to check mergeable state
+            const { data: pr } = await github.rest.pulls.get({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              head: `${context.repo.owner}:${branch}`,
-              state: 'open',
+              pull_number: prNumber,
             });
+            
+            // Check if PR is mergeable
+            if (pr.mergeable === false) {
+              console.log('❌ PR is not mergeable (likely has conflicts)');
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'all_checks_passed=false\n');
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'reason=PR has conflicts\n');
+              core.setFailed('PR has merge conflicts');
+              return;
+            }
+            
+            if (pr.draft === true) {
+              console.log('❌ PR is still in draft state');
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'all_checks_passed=false\n');
+              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'reason=PR is in draft state\n');
+              core.setFailed('PR is in draft state');
+              return;
+            }
+            
+            console.log('✅ PR is mergeable and ready');
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'all_checks_passed=true\n');
 
-            const pattern = /^Release v(\d+\.\d+\.\d+)$/;
-            const match = prs.find(pr => pattern.test(pr.title));
-
-            if (!match) {
-              console.log('❌ No matching Release PR found.');
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, 'found=false\n');
-            } else {
-              const version = `v${match.title.match(pattern)[1]}`;
-              const body = match.body || '';
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, `found=true\n`);
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, `number=${match.number}\n`);
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, `title=${match.title.replace(/\n/g, ' ')}\n`);
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, `body<<EOF\n${body}\nEOF\n`);
-              fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
-              console.log(`✅ Found matching Release PR: #${match.number} - ${match.title}`);
+      - name: Merge PR
+        id: merge_pr
+        if: steps.pr_info.outputs.matches_pattern == 'true' && steps.check_status.outcome == 'success' && steps.verify_pr.outputs.all_checks_passed == 'true'
+        uses: actions/github-script@v8
+        with:
+          github-token: ${{ secrets.ACCESS_TOKEN }}
+          script: |
+            const prNumber = parseInt('${{ steps.pr_info.outputs.pr_number }}');
+            const prTitle = '${{ steps.pr_info.outputs.pr_title }}';
+            const prBody = '${{ steps.pr_info.outputs.pr_body }}';
+            
+            console.log(`🔄 Attempting to merge PR #${prNumber}...`);
+            
+            try {
+              // Merge the PR
+              const { data: mergeResult } = await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                commit_title: prTitle,
+                commit_message: prBody,
+                merge_method: 'merge',
+              });
+              
+              if (mergeResult.merged) {
+                console.log(`✅ Successfully merged PR #${prNumber}`);
+                const fs = require('fs');
+                fs.appendFileSync(process.env.GITHUB_OUTPUT, 'merged=true\n');
+                fs.appendFileSync(process.env.GITHUB_OUTPUT, `merge_sha=${mergeResult.sha}\n`);
+              } else {
+                console.log(`❌ Failed to merge PR #${prNumber}`);
+                const fs = require('fs');
+                fs.appendFileSync(process.env.GITHUB_OUTPUT, 'merged=false\n');
+                throw new Error(`Merge failed: ${mergeResult.message || 'Unknown error'}`);
+              }
+            } catch (error) {
+              console.error(`❌ Error merging PR: ${error.message}`);
+              if (error.status === 405) {
+                throw new Error('PR cannot be merged. It may require reviews, have conflicts, or be blocked by branch protection rules.');
+              }
+              throw error;
             }
 
-  auto-merge:
-    name: Auto Merge & Create Release
-    runs-on: ubuntu-latest
-    needs: precheck
-    if: needs.precheck.outputs.found == 'true'
-
-    permissions:
-      contents: write
-      pull-requests: write
-
-    steps:
-      - name: Auto-merge the PR
-        id: auto_merge
-        uses: pascalgn/automerge-action@v0.16.3
-        env:
-          GITHUB_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-          PULL_REQUEST: ${{ needs.precheck.outputs.number }}
-          MERGE_METHOD: merge
-          MERGE_COMMIT_MESSAGE: pull-request-title-and-description
-          MERGE_DELETE_BRANCH: false
-          MERGE_FORKS: false
-          MERGE_LABELS: ""
-          MERGE_ERROR_FAIL: true
-          MERGE_READY_STATE: "clean,has_hooks,unknown,unstable,blocked"
-
       - name: Create GitHub Release
-        if: steps.auto_merge.outputs.mergeResult == 'merged'
+        if: steps.pr_info.outputs.matches_pattern == 'true' && steps.merge_pr.outputs.merged == 'true'
         uses: actions/github-script@v8
         env:
-          RELEASE_BODY: ${{ needs.precheck.outputs.body }}
+          RELEASE_BODY: ${{ steps.pr_info.outputs.pr_body }}
         with:
           github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const targetBranch = '${{ inputs.release-branch }}' || 'main';
-            const version = '${{ needs.precheck.outputs.version }}';
-            const releaseName = `Release ${version}`;
+            const version = '${{ steps.pr_info.outputs.version }}';
+            const releaseName = '${{ steps.pr_info.outputs.pr_title }}';
             const body = process.env.RELEASE_BODY || '';
+            
+            console.log(`🔖 Creating release ${releaseName} (${version}) on branch ${targetBranch}...`);
             
             // Get the latest commit on the target branch
             const { data: branch } = await github.rest.repos.getBranch({
@@ -103,8 +218,27 @@ jobs:
             });
             
             const targetCommitish = branch.commit.sha;
-            console.log(`🔖 Creating release ${releaseName} on branch ${targetBranch} at commit ${targetCommitish}`);
+            console.log(`📍 Target commit: ${targetCommitish}`);
             
+            // Check if release already exists
+            try {
+              const { data: existingRelease } = await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag: version,
+              });
+              
+              console.log(`⚠️ Release ${version} already exists: ${existingRelease.html_url}`);
+              console.log('Skipping release creation.');
+              return;
+            } catch (error) {
+              if (error.status !== 404) {
+                throw error;
+              }
+              // Release doesn't exist, continue with creation
+            }
+            
+            // Create the release using REST API
             const { data: release } = await github.rest.repos.createRelease({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -117,3 +251,4 @@ jobs:
             });
             
             console.log(`✅ Created release: ${release.html_url}`);
+
