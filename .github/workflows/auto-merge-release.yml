@@ -153,12 +153,15 @@ jobs:
         id: merge_pr
         if: steps.pr_info.outputs.matches_pattern == 'true' && steps.check_status.outcome == 'success' && steps.verify_pr.outputs.all_checks_passed == 'true'
         uses: actions/github-script@v8
+        env:
+          PR_TITLE: ${{ steps.pr_info.outputs.pr_title }}
+          PR_BODY: ${{ steps.pr_info.outputs.pr_body }}
         with:
           github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const prNumber = parseInt('${{ steps.pr_info.outputs.pr_number }}');
-            const prTitle = '${{ steps.pr_info.outputs.pr_title }}';
-            const prBody = '${{ steps.pr_info.outputs.pr_body }}';
+            const prTitle = process.env.PR_TITLE || '';
+            const prBody = process.env.PR_BODY || '';
             
             console.log(`🔄 Attempting to merge PR #${prNumber}...`);
             
@@ -197,12 +200,13 @@ jobs:
         uses: actions/github-script@v8
         env:
           RELEASE_BODY: ${{ steps.pr_info.outputs.pr_body }}
+          PR_TITLE: ${{ steps.pr_info.outputs.pr_title }}
         with:
           github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const targetBranch = '${{ inputs.release-branch }}' || 'main';
             const version = '${{ steps.pr_info.outputs.version }}';
-            const releaseName = '${{ steps.pr_info.outputs.pr_title }}';
+            const releaseName = process.env.PR_TITLE || '';
             const body = process.env.RELEASE_BODY || '';
             
             console.log(`🔖 Creating release ${releaseName} (${version}) on branch ${targetBranch}...`);
