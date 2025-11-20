@@ -118,7 +118,6 @@ jobs:
           github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const fs = require('fs');
-            const core = require('@actions/core');
             const prNumber = parseInt('${{ steps.pr_info.outputs.pr_number }}');
             
             console.log(`🔍 Verifying PR #${prNumber} mergeability...`);
