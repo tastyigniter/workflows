@@ -94,7 +94,6 @@ jobs:
             
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `matches_pattern=true\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_number=${prNumber}\n`);
-            fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_title=${prTitle.replace(/\n/g, ' ')}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `version=${version}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_head_sha=${prHeadSha}\n`);
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `pr_body<<EOF\n${prBody}\nEOF\n`);
@@ -107,7 +106,7 @@ jobs:
           ref: ${{ steps.pr_info.outputs.pr_head_sha }}
           check-regexp: '^php-tests'
           repo-token: ${{ secrets.ACCESS_TOKEN }}
-          wait-interval: 10
+          wait-interval: 120
           allowed-conclusions: success
 
       - name: Verify PR mergeability
@@ -169,16 +168,14 @@ jobs:
         uses: actions/github-script@v8
         env:
           RELEASE_BODY: ${{ steps.pr_info.outputs.pr_body }}
-          PR_TITLE: ${{ steps.pr_info.outputs.pr_title }}
         with:
           github-token: ${{ secrets.ACCESS_TOKEN }}
           script: |
             const targetBranch = '${{ inputs.release-branch }}' || 'main';
             const version = '${{ steps.pr_info.outputs.version }}';
-            const releaseName = process.env.PR_TITLE || '';
             const body = process.env.RELEASE_BODY || '';
             
-            console.log(`🔖 Creating release ${releaseName} (${version}) on branch ${targetBranch}...`);
+            console.log(`🔖 Creating release (${version}) on branch ${targetBranch}...`);
             
             // Get the latest commit on the target branch
             const { data: branch } = await github.rest.repos.getBranch({
@@ -213,7 +210,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               tag_name: version,
-              name: releaseName,
+              name: version,
               body: body,
               target_commitish: targetCommitish,
               draft: false,
