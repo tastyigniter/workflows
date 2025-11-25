@@ -12,6 +12,9 @@ on:
       commit-file-pattern:
         required: false
         type: string
+    secrets:
+      IGNITER_CARTE_KEY:
+        required: false
 
 jobs:
   php-lint:
@@ -19,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -27,6 +30,12 @@ jobs:
           php-version: ${{ inputs.php-version || '8.3' }}
           tools: composer:v2
           coverage: none
+
+      - name: Configure composer authentication
+        env:
+          CARTE_KEY: ${{ secrets.IGNITER_CARTE_KEY }}
+        if: env.CARTE_KEY != ''
+        run: composer config http-basic.composer.tastyigniter.com IgniterLabs "$CARTE_KEY"
 
       - name: Set composer version to avoid conflicts
         if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
@@ -43,7 +52,7 @@ jobs:
         run: composer test:lint
 
       - name: Commit changes
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: PHP Linting (Pint) - Fix styling
           file_pattern: ${{ inputs.commit-file-pattern || './' }}

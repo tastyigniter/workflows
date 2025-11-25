@@ -9,6 +9,9 @@ on:
       composer:
         required: false
         type: string
+    secrets:
+      IGNITER_CARTE_KEY:
+        required: false
 
 jobs:
   php-code-check:
@@ -16,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout changes
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Rector Cache
         uses: actions/cache@v4
@@ -34,6 +37,12 @@ jobs:
           extensions: dom, curl, xml, mbstring, zip, pdo, sqlite, bcmath, soap, intl, gd
           tools: composer:v2
           coverage: none
+
+      - name: Configure composer authentication
+        env:
+          CARTE_KEY: ${{ secrets.IGNITER_CARTE_KEY }}
+        if: env.CARTE_KEY != ''
+        run: composer config http-basic.composer.tastyigniter.com IgniterLabs "$CARTE_KEY"
 
       - name: Set composer version to avoid conflicts
         if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'

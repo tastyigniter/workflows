@@ -17,12 +17,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.ACCESS_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
 
       - name: Install NPM dependencies
         run: npm install -g bower && npm ci --ignore-scripts
@@ -31,7 +31,7 @@ jobs:
         run: npm run prod
 
       - name: Commit compiled files
-        uses: stefanzweifel/git-auto-commit-action@v4
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: Compile Assets
           file_pattern: ${{ inputs.commit-file-pattern || 'public' }}

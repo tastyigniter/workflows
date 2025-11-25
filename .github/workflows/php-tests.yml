@@ -21,6 +21,9 @@ on:
       db-prefix:
         required: false
         type: string
+    secrets:
+      IGNITER_CARTE_KEY:
+        required: false
 
 jobs:
   php-tests:
@@ -43,7 +46,7 @@ jobs:
       LARAVEL_PARALLEL_TESTING: 1
     steps:
       - name: Checkout changes
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create MySQL Database
         run: |
@@ -57,6 +60,12 @@ jobs:
           extensions: dom, curl, xml, mbstring, zip, pdo, sqlite, bcmath, soap, intl, gd
           tools: composer:v2
           coverage: xdebug
+
+      - name: Configure composer authentication
+        env:
+          CARTE_KEY: ${{ secrets.IGNITER_CARTE_KEY }}
+        if: env.CARTE_KEY != ''
+        run: composer config http-basic.composer.tastyigniter.com IgniterLabs "$CARTE_KEY"
 
       - name: Set composer version to avoid conflicts
         if: github.head_ref != 'master' && github.head_ref != 'main' && github.head_ref != '4.x'
